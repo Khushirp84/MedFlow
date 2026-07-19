@@ -1,17 +1,25 @@
 """
 Embedding generation using a free, local Sentence Transformers model.
 No API cost - runs on CPU, good enough quality for a RAG retrieval step.
+
+NOTE: sentence-transformers (and the torch it pulls in) is imported lazily,
+inside get_model(), rather than at module level. Importing torch is heavy
+(memory + time), and on constrained hosts (e.g. free-tier Render) importing
+it eagerly at app startup can cause the app to blow past the platform's
+startup timeout before it ever binds to a port. Deferring the import means
+the app boots fast and only pays this cost the first time a document is
+actually processed.
 """
-from sentence_transformers import SentenceTransformer
 
 _model = None
 
 MODEL_NAME = "all-MiniLM-L6-v2"  # 384-dim, fast, free, good general baseline
 
 
-def get_model() -> SentenceTransformer:
+def get_model():
     global _model
     if _model is None:
+        from sentence_transformers import SentenceTransformer  # lazy import - see note above
         _model = SentenceTransformer(MODEL_NAME)
     return _model
 

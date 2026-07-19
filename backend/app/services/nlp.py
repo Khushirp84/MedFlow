@@ -8,7 +8,7 @@ which combined with keyword matching gives a usable first pass at structuring
 a document. Swap in a clinical NER model here if you have GPU budget later.
 """
 import re
-import spacy
+
 
 _nlp = None
 
@@ -28,6 +28,7 @@ MEDICATION_PATTERN = re.compile(
 def get_nlp():
     global _nlp
     if _nlp is None:
+        import spacy  # lazy import - keeps app startup fast/light on constrained hosts
         _nlp = spacy.load("en_core_web_sm")
     return _nlp
 

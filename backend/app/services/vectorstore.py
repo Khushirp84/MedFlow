@@ -3,9 +3,6 @@ Thin wrapper around a persistent ChromaDB collection used for RAG retrieval.
 Documents are namespaced by patient_id via metadata so a query for one
 patient never leaks context from another.
 """
-import chromadb
-from chromadb.config import Settings as ChromaSettings
-
 from app.core.config import get_settings
 from app.services.embeddings import embed_texts, embed_text, chunk_text
 
@@ -20,6 +17,8 @@ COLLECTION_NAME = "medflow_documents"
 def get_client():
     global _client
     if _client is None:
+        import chromadb  # lazy import - keeps app startup fast/light on constrained hosts
+        from chromadb.config import Settings as ChromaSettings
         _client = chromadb.PersistentClient(
             path=settings.CHROMA_DIR,
             settings=ChromaSettings(anonymized_telemetry=False),
