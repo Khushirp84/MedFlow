@@ -1,0 +1,8 @@
+.env
+__pycache__/
+*.pyc
+medflow.db
+uploads/
+chroma_db/
+venv/
+.venv/
