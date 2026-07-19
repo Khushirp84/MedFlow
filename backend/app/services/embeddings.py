@@ -1,33 +1,47 @@
 """
-Embedding generation using a free, local Sentence Transformers model.
-No API cost - runs on CPU, good enough quality for a RAG retrieval step.
+Embedding generation using Google's Gemini embedding API.
 
-NOTE: sentence-transformers (and the torch it pulls in) is imported lazily,
-inside get_model(), rather than at module level. Importing torch is heavy
-(memory + time), and on constrained hosts (e.g. free-tier Render) importing
-it eagerly at app startup can cause the app to blow past the platform's
-startup timeout before it ever binds to a port. Deferring the import means
-the app boots fast and only pays this cost the first time a document is
-actually processed.
+We deliberately use Gemini's hosted embedding endpoint here instead of a local
+sentence-transformers model. Loading sentence-transformers pulls in torch,
+which is memory-heavy - on constrained hosts (e.g. free-tier Render's 512MB
+RAM limit) loading torch alongside spaCy and ChromaDB during document
+processing can exceed available memory and crash the instance. Using Gemini's
+API instead means no large ML library needs to be loaded into memory at all;
+the tradeoff is that embedding calls now require network access and count
+against Gemini's free-tier rate limits.
 """
+from app.core.config import get_settings
 
-_model = None
+settings = get_settings()
 
-MODEL_NAME = "all-MiniLM-L6-v2"  # 384-dim, fast, free, good general baseline
+_client = None
+
+EMBEDDING_MODEL = "text-embedding-004"  # Gemini's free embedding model
 
 
-def get_model():
-    global _model
-    if _model is None:
-        from sentence_transformers import SentenceTransformer  # lazy import - see note above
-        _model = SentenceTransformer(MODEL_NAME)
-    return _model
+def _get_client():
+    global _client
+    if _client is None:
+        if not settings.GEMINI_API_KEY:
+            raise RuntimeError(
+                "GEMINI_API_KEY is not set. Get a free key at "
+                "https://aistudio.google.com/app/apikey and add it to your .env"
+            )
+        from google import genai  # lazy import - keeps app startup fast/light
+        _client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    return _client
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:
-    model = get_model()
-    embeddings = model.encode(texts, normalize_embeddings=True, show_progress_bar=False)
-    return embeddings.tolist()
+    """Embed a list of texts one at a time via the Gemini API.
+    (Simple loop rather than a batch call - keeps this robust across SDK
+    versions and easy to reason about for a handful of chunks per document.)"""
+    client = _get_client()
+    embeddings = []
+    for text in texts:
+        result = client.models.embed_content(model=EMBEDDING_MODEL, contents=text)
+        embeddings.append(result.embeddings[0].values)
+    return embeddings
 
 
 def embed_text(text: str) -> list[float]:
