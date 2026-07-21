@@ -21,6 +21,7 @@ if settings.TESSERACT_CMD:
     pytesseract.pytesseract.tesseract_cmd = settings.TESSERACT_CMD
 
 MIN_CHARS_PER_PAGE = 20  # below this, assume the page is a scan and needs OCR
+TESSERACT_CONFIG = f"--psm {settings.TESSERACT_PSM}".strip()
 
 IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".tiff", ".bmp"}
 
@@ -47,7 +48,7 @@ def _extract_from_pdf(file_path: str) -> str:
             # Likely a scanned page - rasterize and OCR it
             pix = page.get_pixmap(dpi=300)
             img = Image.open(io.BytesIO(pix.tobytes("png")))
-            text = pytesseract.image_to_string(img)
+            text = pytesseract.image_to_string(img, config=TESSERACT_CONFIG)
 
         full_text.append(text)
 
@@ -57,4 +58,4 @@ def _extract_from_pdf(file_path: str) -> str:
 
 def _extract_from_image(file_path: str) -> str:
     img = Image.open(file_path)
-    return pytesseract.image_to_string(img).strip()
+    return pytesseract.image_to_string(img, config=TESSERACT_CONFIG).strip()

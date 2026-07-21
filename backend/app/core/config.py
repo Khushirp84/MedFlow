@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     CHROMA_DIR: str = "./chroma_db"
 
     TESSERACT_CMD: str = ""
+    TESSERACT_PSM: str = "6"
 
     class Config:
         env_file = ".env"
